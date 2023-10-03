@@ -1,5 +1,7 @@
 package com.myname.rmi;
 
+import java.rmi.RemoteException;
+
 import java.rmi.Naming;
 import java.util.Properties;
 import java.io.FileInputStream;

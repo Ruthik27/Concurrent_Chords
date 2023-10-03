@@ -16,7 +16,7 @@ public class RemoteStringArrayServer {
             String bindName = prop.getProperty("bindName", "RemoteStringArrayService");
 
             // Start the RMI registry on the default port (1099)
-            LocateRegistry.createRegistry(1099);
+            LocateRegistry.createRegistry(2000);
 
             // Create an instance of the RemoteStringArray
             RemoteStringArrayInterface remoteArray = new RemoteStringArray();
