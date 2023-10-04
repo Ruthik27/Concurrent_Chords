@@ -5,6 +5,8 @@ import java.util.HashMap;
 import java.rmi.RemoteException;
 import java.rmi.server.UnicastRemoteObject;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
+import java.util.concurrent.TimeUnit;
+
 
 public class RemoteStringArray extends UnicastRemoteObject implements RemoteStringArrayInterface {
 
@@ -13,11 +15,15 @@ public class RemoteStringArray extends UnicastRemoteObject implements RemoteStri
     private Map<Integer, Integer> readLockOwners = new HashMap<>();
     private Map<Integer, Integer> writeLockOwners = new HashMap<>();
 
-    public RemoteStringArray() throws RemoteException {
+    // Updated constructor to accept the size of the array
+    public RemoteStringArray(int n) throws RemoteException {
         super();
+        if (n <= 0) {
+            throw new RemoteException("Invalid array size provided: " + n);
+        }
+        initializeArray(n);
     }
 
-    @Override
     public void initializeArray(int n) throws RemoteException {
         array = new String[n];
         locks = new ReentrantReadWriteLock[n];
@@ -28,12 +34,18 @@ public class RemoteStringArray extends UnicastRemoteObject implements RemoteStri
 
     @Override
     public int getArrayCapacity() throws RemoteException {
+        if (array == null) {
+            throw new RemoteException("Array has not been initialized.");
+        }
         return array.length;
     }
 
     @Override
     public void insertArrayElement(int l, String str) throws RemoteException {
         if (l >= 0 && l < array.length) {
+            if (array[l] != null) {
+                throw new RemoteException("Element at index " + l + " already exists. Overwriting is not allowed.");
+            }
             array[l] = str;
         } else {
             throw new RemoteException("Index out of bounds");
@@ -41,42 +53,15 @@ public class RemoteStringArray extends UnicastRemoteObject implements RemoteStri
     }
 
     @Override
-    public boolean requestReadLock(int l, int client_id) throws RemoteException {
-        if (l >= 0 && l < array.length) {
-            if (writeLockOwners.containsKey(l) && writeLockOwners.get(l) != client_id) {
-                return false; // Another client holds the write lock.
-            }
-            if (locks[l].readLock().tryLock()) {
-                readLockOwners.put(l, client_id);
-                return true;
-            }
-        }
-        throw new RemoteException("Index out of bounds");
-    }
-
-    @Override
-    public boolean requestWriteLock(int l, int client_id) throws RemoteException {
-        if (l >= 0 && l < array.length) {
-            if ((readLockOwners.containsKey(l) && readLockOwners.get(l) != client_id) ||
-                    (writeLockOwners.containsKey(l) && writeLockOwners.get(l) != client_id)) {
-                return false; // Another client holds a lock.
-            }
-            if (locks[l].writeLock().tryLock()) {
-                writeLockOwners.put(l, client_id);
-                return true;
-            }
-        }
-        throw new RemoteException("Index out of bounds");
-    }
-
-
-    @Override
     public void releaseLock(int l, int client_id) throws RemoteException {
         if (l >= 0 && l < array.length) {
-            if (locks[l].isWriteLockedByCurrentThread() && writeLockOwners.get(l) == client_id) {
+            // Check if the client ID matches the one in the writeLockOwners map
+            if (writeLockOwners.get(l) != null && writeLockOwners.get(l) == client_id) {
                 locks[l].writeLock().unlock();
                 writeLockOwners.remove(l);
-            } else if (locks[l].readLock().tryLock() && readLockOwners.get(l) == client_id) {
+            }
+            // Check if the client ID matches the one in the readLockOwners map
+            else if (readLockOwners.get(l) != null && readLockOwners.get(l) == client_id) {
                 locks[l].readLock().unlock();
                 readLockOwners.remove(l);
             } else {
@@ -85,6 +70,47 @@ public class RemoteStringArray extends UnicastRemoteObject implements RemoteStri
         } else {
             throw new RemoteException("Index out of bounds");
         }
+    }
+
+    @Override
+    public boolean requestReadLock(int l, int client_id) throws RemoteException {
+        if (l >= 0 && l < array.length) {
+            // Check if any client holds a write lock on the element
+            if (writeLockOwners.containsKey(l)) {
+                throw new RemoteException("Write lock is already held by another client for index " + l);
+            }
+            try {
+                if (locks[l].readLock().tryLock(5, TimeUnit.SECONDS)) { // wait up to 5 seconds
+                    readLockOwners.put(l, client_id);
+                    return true;
+                } else {
+                    throw new RemoteException("Failed to acquire read lock for index " + l + " within timeout.");
+                }
+            } catch (InterruptedException e) {
+                throw new RemoteException("Lock acquisition interrupted", e);
+            }
+        } else {
+            throw new RemoteException("Index out of bounds");
+        }
+    }
+
+    @Override
+    public boolean requestWriteLock(int l, int client_id) throws RemoteException {
+        if (l >= 0 && l < array.length) {
+            if (readLockOwners.containsKey(l)) {
+                throw new RemoteException("Read lock is already held by another client for index " + l);
+            }
+            if (writeLockOwners.containsKey(l)) {
+                throw new RemoteException("Write lock is already held by another client for index " + l);
+            }
+            if (locks[l].writeLock().tryLock()) {
+                writeLockOwners.put(l, client_id);
+                return true;
+            } else {
+                throw new RemoteException("Failed to acquire write lock for index " + l);
+            }
+        }
+        throw new RemoteException("Index out of bounds");
     }
 
 
@@ -97,7 +123,7 @@ public class RemoteStringArray extends UnicastRemoteObject implements RemoteStri
             if (requestReadLock(l, client_id)) {
                 return array[l];
             } else {
-                return null; // or throw an exception indicating that the lock couldn't be acquired
+                throw new RemoteException("Failed to acquire read lock for index " + l);
             }
         }
         throw new RemoteException("Index out of bounds");
@@ -109,11 +135,12 @@ public class RemoteStringArray extends UnicastRemoteObject implements RemoteStri
             if (requestWriteLock(l, client_id)) {
                 return array[l];
             } else {
-                return null; // or throw an exception
+                throw new RemoteException("Failed to acquire write lock for index " + l);
             }
         }
         throw new RemoteException("Index out of bounds");
     }
+
 
     @Override
     public boolean writeBackElement(String str, int l, int client_id) throws RemoteException {
@@ -122,11 +149,12 @@ public class RemoteStringArray extends UnicastRemoteObject implements RemoteStri
                 array[l] = str;
                 return true;
             } else {
-                return false;
+                throw new RemoteException("Client " + client_id + " does not hold the write lock for index " + l);
             }
         }
         throw new RemoteException("Index out of bounds");
     }
+
 
     @Override
     public int getClientHoldingReadLock(int l) throws RemoteException {
@@ -162,3 +190,4 @@ public class RemoteStringArray extends UnicastRemoteObject implements RemoteStri
     }
 
 }
+

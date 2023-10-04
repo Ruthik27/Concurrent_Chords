@@ -38,7 +38,7 @@ public class RemoteStringArrayClient {
                 System.out.println("12. Force Release Lock");
 
                 int choice = scanner.nextInt();
-
+                scanner.nextLine(); // Consume the newline character
                 switch (choice) {
                     case 1:
                         // Get Array Capacity
@@ -48,7 +48,70 @@ public class RemoteStringArrayClient {
                             System.out.println("Error fetching array capacity: " + e.getMessage());
                         }
                         break;
+                    case 2:
+                        try {
+                            // Fetch Element (Read)
+                            System.out.print("Enter index: ");
+                            int indexRead = scanner.nextInt();
+                            String elementRead = remoteArray.fetchElementRead(indexRead, 1);
+                            System.out.println("Element at index " + indexRead + ": " + elementRead);
+                        } catch (RemoteException e) {
+                            System.out.println("Error fetching element for reading: " + e.getMessage());
+                        }
+                        break;
 
+                    case 3:
+                        try {
+                            // Fetch Element (Write)
+                            System.out.print("Enter index: ");
+                            int indexWrite = scanner.nextInt();
+                            String elementWrite = remoteArray.fetchElementWrite(indexWrite, 1);
+                            System.out.println("Element at index " + indexWrite + ": " + elementWrite);
+                        } catch (RemoteException e) {
+                            System.out.println("Error fetching element for writing: " + e.getMessage());
+                        }
+                        break;
+
+                    case 4:
+                        // Insert Element
+                        System.out.print("Enter index: ");
+                        int indexInsert = scanner.nextInt();
+                        System.out.print("Enter string to insert: ");
+                        String strInsert = scanner.next();
+                        try {
+                            remoteArray.insertArrayElement(indexInsert, strInsert);
+                            System.out.println("Element inserted successfully at index " + indexInsert + ".");
+                        } catch (RemoteException e) {
+                            System.out.println("Error inserting element: " + e.getMessage());
+                        }
+                        break;
+
+
+                    case 5:
+                        try {
+                            // Release Lock
+                            System.out.print("Enter index: ");
+                            int indexRelease = scanner.nextInt();
+                            remoteArray.releaseLock(indexRelease, 1);
+                            System.out.println("Lock released successfully.");
+                        } catch (RemoteException e) {
+                            System.out.println("Error releasing lock: " + e.getMessage());
+                        }
+                        break;
+
+                    case 6:
+                        try {
+                            // Write Back Element
+                            System.out.print("Enter index: ");
+                            int indexWriteBack = scanner.nextInt();
+                            System.out.print("Enter string to write back: ");
+                            String strWriteBack = scanner.next();
+                            remoteArray.writeBackElement(strWriteBack, indexWriteBack, 1);
+                            System.out.println("Element written back successfully.");
+                        } catch (RemoteException e) {
+                            System.out.println("Error writing back element: " + e.getMessage());
+                        }
+                        break;
                     // ... [Keep the existing cases 2 to 6 as they are]
                     case 7:
                         // Concatenate to Element
@@ -70,8 +133,7 @@ public class RemoteStringArrayClient {
                     case 9:
                         continueRunning = false;
                         break;
-                    default:
-                        System.out.println("Invalid choice. Please try again.");
+
 
                     case 10:
                         System.out.print("Enter index: ");
@@ -107,6 +169,9 @@ public class RemoteStringArrayClient {
                             System.out.println("Error: " + e.getMessage());
                         }
                         break;
+
+                    default:
+                        System.out.println("Invalid choice. Please try again.");
                 }
             }
 
