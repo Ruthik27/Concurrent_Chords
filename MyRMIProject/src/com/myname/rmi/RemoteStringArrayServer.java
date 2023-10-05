@@ -10,9 +10,17 @@ public class RemoteStringArrayServer {
 
     public static void main(String[] args) {
         try {
-            // Load properties from a configuration file
+            // Check if a command line argument is provided
+            if (args.length < 1) {
+                System.out.println("Please provide the path to the configuration file as a command line argument.");
+                return;
+            }
+
+            String configFilePath = args[0]; // Use the provided argument as the configuration file path
+
+            // Load properties from the provided configuration file
             Properties prop = new Properties();
-            prop.load(new FileInputStream("resources/server_config.properties"));
+            prop.load(new FileInputStream(configFilePath));
             String bindName = prop.getProperty("bindName", "RemoteStringArrayService");
 
             // Start the RMI registry on the default port (1099)
@@ -22,6 +30,11 @@ public class RemoteStringArrayServer {
             int arraySize = Integer.parseInt(prop.getProperty("arraySize", "10")); // Default size is 10
             RemoteStringArrayInterface remoteArray = new RemoteStringArray(arraySize);
 
+            // Initialize the array with the strings from the configuration file
+            String[] initialStrings = prop.getProperty("initialStrings", "").split(",");
+            for (int i = 0; i < Math.min(arraySize, initialStrings.length); i++) {
+                remoteArray.insertArrayElement(i, initialStrings[i]);
+            }
 
             // Bind the remote object to a name in the RMI registry
             Naming.rebind(bindName, remoteArray);
