@@ -1,12 +1,14 @@
 package com.myname.rmi;
 
-import java.util.Map;
-import java.util.HashMap;
 import java.rmi.RemoteException;
 import java.rmi.server.UnicastRemoteObject;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
+import java.util.Map;
+import java.util.HashMap;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
-
 
 public class RemoteStringArray extends UnicastRemoteObject implements RemoteStringArrayInterface {
 
@@ -14,8 +16,9 @@ public class RemoteStringArray extends UnicastRemoteObject implements RemoteStri
     private ReentrantReadWriteLock[] locks;
     private Map<Integer, Integer> readLockOwners = new HashMap<>();
     private Map<Integer, Integer> writeLockOwners = new HashMap<>();
+    private ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(10);
+    private Map<Integer, ScheduledFuture<?>> lockTimeoutTasks = new HashMap<>();
 
-    // Updated constructor to accept the size of the array
     public RemoteStringArray(int n) throws RemoteException {
         super();
         if (n <= 0) {
@@ -54,28 +57,41 @@ public class RemoteStringArray extends UnicastRemoteObject implements RemoteStri
 
     @Override
     public void releaseLock(int l, int client_id) throws RemoteException {
-        if (l >= 0 && l < array.length) {
-            // Check if the client ID matches the one in the writeLockOwners map
-            if (writeLockOwners.get(l) != null && writeLockOwners.get(l) == client_id) {
-                locks[l].writeLock().unlock();
-                writeLockOwners.remove(l);
+        if (l < 0 || l >= array.length) {
+            throw new RemoteException("Index out of bounds");
+        }
+
+        // Check if the client ID matches the one in the writeLockOwners map
+        if (writeLockOwners.containsKey(l) && writeLockOwners.get(l).equals(client_id)) {
+            locks[l].writeLock().unlock();
+            writeLockOwners.remove(l);
+
+            // Cancel the timeout task if it exists
+            ScheduledFuture<?> timeoutTask = lockTimeoutTasks.get(l);
+            if (timeoutTask != null) {
+                timeoutTask.cancel(false);
+                lockTimeoutTasks.remove(l);
             }
-            // Check if the client ID matches the one in the readLockOwners map
-            else if (readLockOwners.get(l) != null && readLockOwners.get(l) == client_id) {
-                locks[l].readLock().unlock();
-                readLockOwners.remove(l);
-            } else {
-                throw new RemoteException("Client " + client_id + " does not hold the lock for index " + l);
+        }
+        // Check if the client ID matches the one in the readLockOwners map
+        else if (readLockOwners.containsKey(l) && readLockOwners.get(l).equals(client_id)) {
+            locks[l].readLock().unlock();
+            readLockOwners.remove(l);
+
+            // Cancel the timeout task if it exists
+            ScheduledFuture<?> timeoutTask = lockTimeoutTasks.get(l);
+            if (timeoutTask != null) {
+                timeoutTask.cancel(false);
+                lockTimeoutTasks.remove(l);
             }
         } else {
-            throw new RemoteException("Index out of bounds");
+            throw new RemoteException("Client " + client_id + " does not hold the lock for index " + l);
         }
     }
 
     @Override
     public boolean requestReadLock(int l, int client_id) throws RemoteException {
         if (l >= 0 && l < array.length) {
-            // Check if any client holds a write lock on the element
             if (writeLockOwners.containsKey(l)) {
                 throw new RemoteException("Write lock is already held by another client for index " + l);
             }
@@ -105,6 +121,19 @@ public class RemoteStringArray extends UnicastRemoteObject implements RemoteStri
             }
             if (locks[l].writeLock().tryLock()) {
                 writeLockOwners.put(l, client_id);
+                final int lockTimeout = 5;  // 5 minutes, adjust as needed
+
+                // Schedule a task to release the lock after the timeout
+                ScheduledFuture<?> timeoutTask = scheduler.schedule(() -> {
+                    try {
+                        releaseLock(l, client_id);
+                        System.out.println("Lock at index " + l + " released due to timeout.");
+                    } catch (RemoteException e) {
+                        e.printStackTrace();
+                    }
+                }, lockTimeout, TimeUnit.MINUTES);
+
+                System.out.println("Write lock acquired by client " + client_id + " for index " + l);
                 return true;
             } else {
                 throw new RemoteException("Failed to acquire write lock for index " + l);
@@ -112,7 +141,6 @@ public class RemoteStringArray extends UnicastRemoteObject implements RemoteStri
         }
         throw new RemoteException("Index out of bounds");
     }
-
 
     @Override
     public String fetchElementRead(int l, int client_id) throws RemoteException {
@@ -141,7 +169,6 @@ public class RemoteStringArray extends UnicastRemoteObject implements RemoteStri
         throw new RemoteException("Index out of bounds");
     }
 
-
     @Override
     public boolean writeBackElement(String str, int l, int client_id) throws RemoteException {
         if (l >= 0 && l < array.length) {
@@ -154,7 +181,6 @@ public class RemoteStringArray extends UnicastRemoteObject implements RemoteStri
         }
         throw new RemoteException("Index out of bounds");
     }
-
 
     @Override
     public int getClientHoldingReadLock(int l) throws RemoteException {
