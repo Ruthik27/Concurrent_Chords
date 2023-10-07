@@ -1,42 +1,35 @@
 package com.myname.rmi;
 
 import java.rmi.RemoteException;
-
 import java.rmi.Naming;
 import java.util.Properties;
 import java.io.FileInputStream;
 import java.util.Scanner;
-
+import java.util.InputMismatchException;
 
 
 public class RemoteStringArrayClient {
     private static String[] localArray;
-    // Add the printLocalArray method here
+
     private static void printLocalArray() {
         System.out.println("Local Array Contents:");
         for (int i = 0; i < localArray.length; i++) {
             System.out.println("Index " + i + ": " + localArray[i]);
         }
     }
+
     public static void main(String[] args) {
         try {
-            // Load properties from a configuration file
             Properties prop = new Properties();
             prop.load(new FileInputStream("resources/client_config.properties"));
             String bindName = prop.getProperty("bindName", "RemoteStringArrayService");
 
-            // Connect to the RMI registry and look up the remote object
             RemoteStringArrayInterface remoteArray = (RemoteStringArrayInterface) Naming.lookup(bindName);
-// Fetch the size of the array from the server and initialize the local array
             int serverArraySize = remoteArray.getArrayCapacity();
             localArray = new String[serverArraySize];
 
             Scanner scanner = new Scanner(System.in);
             boolean continueRunning = true;
-
-            // Connect to the RMI registry and look up the remote object
-
-
 
             while (continueRunning) {
                 System.out.println("Choose an operation:");
@@ -54,8 +47,9 @@ public class RemoteStringArrayClient {
                 System.out.println("12. Force Release Lock");
                 System.out.println("13. Print Local Array");
 
-                int choice = scanner.nextInt();
-                scanner.nextLine(); // Consume the newline character
+                try {
+                    int choice = scanner.nextInt();
+                    scanner.nextLine(); // Consume the newline character
                 switch (choice) {
                     case 1:
                         // Get Array Capacity
@@ -194,24 +188,25 @@ public class RemoteStringArrayClient {
                             System.out.println("Error: " + e.getMessage());
                         }
                         break;
-
                     case 13:
                         printLocalArray();
                         break;
 
                     default:
                         System.out.println("Invalid choice. Please try again.");
-                }catch (InputMismatchException e) {
-                System.out.println("Invalid input. Please enter a valid number.");
-                scanner.nextLine(); // Consume the invalid input
+                }
+
+                } catch (InputMismatchException e) {
+                    System.out.println("Invalid input. Please enter a valid number.");
+                    scanner.nextLine(); // Consume the invalid input
+                }
             }
+
+            scanner.close();
+
+        } catch (Exception e) {
+            System.out.println("An error occurred: " + e.getMessage());
+            e.printStackTrace();
         }
-
-        scanner.close();
-
-    } catch (Exception e) {
-        System.out.println("An error occurred: " + e.getMessage());
-        e.printStackTrace();
     }
-}
 }

@@ -121,7 +121,7 @@ public class RemoteStringArray extends UnicastRemoteObject implements RemoteStri
             }
             if (locks[l].writeLock().tryLock()) {
                 writeLockOwners.put(l, client_id);
-                final int lockTimeout = 5;  // 5 minutes, adjust as needed
+                final int lockTimeout = 1;  // 1 minute
 
                 // Schedule a task to release the lock after the timeout
                 ScheduledFuture<?> timeoutTask = scheduler.schedule(() -> {
@@ -132,6 +132,9 @@ public class RemoteStringArray extends UnicastRemoteObject implements RemoteStri
                         e.printStackTrace();
                     }
                 }, lockTimeout, TimeUnit.MINUTES);
+
+                // Store the timeout task so it can be canceled if needed
+                lockTimeoutTasks.put(l, timeoutTask);
 
                 System.out.println("Write lock acquired by client " + client_id + " for index " + l);
                 return true;
@@ -174,6 +177,15 @@ public class RemoteStringArray extends UnicastRemoteObject implements RemoteStri
         if (l >= 0 && l < array.length) {
             if (locks[l].isWriteLockedByCurrentThread()) {
                 array[l] = str;
+
+                // Release the lock and cancel the timeout task
+                releaseLock(l, client_id);
+                ScheduledFuture<?> timeoutTask = lockTimeoutTasks.get(l);
+                if (timeoutTask != null) {
+                    timeoutTask.cancel(false);
+                    lockTimeoutTasks.remove(l);
+                }
+
                 return true;
             } else {
                 throw new RemoteException("Client " + client_id + " does not hold the write lock for index " + l);
@@ -181,6 +193,7 @@ public class RemoteStringArray extends UnicastRemoteObject implements RemoteStri
         }
         throw new RemoteException("Index out of bounds");
     }
+
 
     @Override
     public int getClientHoldingReadLock(int l) throws RemoteException {
