@@ -52,7 +52,7 @@ public class RemoteStringArray extends UnicastRemoteObject implements RemoteStri
         if (locks[index].readLock().tryLock()) {
             return array[index];
         }
-        return null; // or throw an exception based on your design decision
+        return null;
     }
 
     @Override
@@ -60,7 +60,7 @@ public class RemoteStringArray extends UnicastRemoteObject implements RemoteStri
         if (locks[index].writeLock().tryLock()) {
             return array[index];
         }
-        return null; // or throw an exception based on your design decision
+        return null;
     }
 
     @Override
