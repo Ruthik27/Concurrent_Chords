@@ -12,22 +12,22 @@ public class RemoteStringArrayClient {
 
     public static void main(String[] args) {
         try {
-            // Load configuration from client_config.properties
+            // Loading the configuration from client side file
             Properties config = new Properties();
             config.load(new FileInputStream("resources/client_config.properties"));
 
             String bindName = config.getProperty("bindName");
 
-            // Connect to the registry
-            Registry registry = LocateRegistry.getRegistry("localhost"); // Example host
+            // Connecting to the registry
+            Registry registry = LocateRegistry.getRegistry("localhost");
 
-            // Lookup the remote object
+            // Find the remote object
             array = (RemoteStringArrayInterface) registry.lookup(bindName);
 
-            // Initialize local array with the same capacity as the server array
+            // Initialize local array with the same capacity defined on the server
             localArray = new String[array.getArrayCapacity()];
 
-            // Command line interface for user
+            // Command line interface for user to perform task
             Scanner scanner = new Scanner(System.in);
             while (true) {
                 displayMenu();
@@ -40,13 +40,13 @@ public class RemoteStringArrayClient {
     }
 
     private static void displayMenu() {
-        System.out.println("Choose an operation:");
+        System.out.println("Select option to execute a task:");
         System.out.println("1. Get Array Capacity");
         System.out.println("2. Fetch Element (Read)");
         System.out.println("3. Fetch Element (Write)");
         System.out.println("4. Insert Element");
         System.out.println("5. Release Lock at Specific Index");
-        System.out.println("6. Write Back Element");
+        System.out.println("6. Write Back Elements");
         System.out.println("7. Concatenate to Element");
         System.out.println("8. Print Element");
         System.out.println("9. Exit");
@@ -75,7 +75,7 @@ public class RemoteStringArrayClient {
                 index = Integer.parseInt(scanner.nextLine());
                 try {
                     result = array.fetchElementRead(index, 1);
-                    localArray[index] = result;  // Store in local array
+                    localArray[index] = result;  // Store it in local array
                     System.out.println(result != null ? "Success: " + result : "Failure");
                 } catch (Exception e) {
                     e.printStackTrace();
@@ -88,7 +88,7 @@ public class RemoteStringArrayClient {
                 index = Integer.parseInt(scanner.nextLine());
                 try {
                     result = array.fetchElementWrite(index, 1);
-                    localArray[index] = result;  // Store in local array
+                    localArray[index] = result;  // Store it in local array
                     System.out.println(result != null ? "Success: " + result : "Failure");
                 } catch (Exception e) {
                     e.printStackTrace();
@@ -101,7 +101,7 @@ public class RemoteStringArrayClient {
                 index = Integer.parseInt(scanner.nextLine());
                 System.out.print("Enter string to insert: ");
                 input = scanner.nextLine();
-                localArray[index] = input;  // Store in local array
+                localArray[index] = input;  // Store it in local array
                 System.out.println("Element inserted successfully.");
                 break;
 
@@ -120,7 +120,7 @@ public class RemoteStringArrayClient {
                 break;
 
             case "6":
-                // Handle Write Back Element
+                // Handle Write Back Element to the server
                 System.out.print("Enter index to write back: ");
                 index = Integer.parseInt(scanner.nextLine());
                 try {

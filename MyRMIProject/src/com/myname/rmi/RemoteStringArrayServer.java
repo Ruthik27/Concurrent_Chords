@@ -9,7 +9,7 @@ public class RemoteStringArrayServer {
 
     public static void main(String[] args) {
         try {
-            // Load configuration from server_config.properties
+            // Load configuration from server side file
             Properties config = new Properties();
             config.load(new FileInputStream(args[0]));
 
@@ -18,15 +18,15 @@ public class RemoteStringArrayServer {
             int arrayCapacity = Integer.parseInt(config.getProperty("arraySize"));
             String[] initialStrings = config.getProperty("initialStrings").split(",");
 
-            // Create the remote object
+            // Used for creating the remote object
             RemoteStringArray array = new RemoteStringArray(arrayCapacity);
 
-            // Populate the array with initial strings
+            // Used for populating the array with initial strings
             for (int i = 0; i < initialStrings.length && i < arrayCapacity; i++) {
                 array.insertArrayElement(i, initialStrings[i]);
             }
 
-            // Bind the remote object to the registry
+            // Used for binding the remote object to the registry
             Registry registry = LocateRegistry.createRegistry(1099); // Default RMI registry port
             registry.rebind(bindName, array);
 
