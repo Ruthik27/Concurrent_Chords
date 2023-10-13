@@ -9,25 +9,28 @@ import java.util.Scanner;
 public class RemoteStringArrayClient {
     private static RemoteStringArrayInterface array;
     private static String[] localArray;
+    private static int clientId;
+
 
     public static void main(String[] args) {
         try {
-            // Loading the configuration from client side file
+
             Properties config = new Properties();
             config.load(new FileInputStream("resources/client_config.properties"));
 
             String bindName = config.getProperty("bindName");
 
-            // Connecting to the registry
             Registry registry = LocateRegistry.getRegistry("localhost");
 
-            // Find the remote object
             array = (RemoteStringArrayInterface) registry.lookup(bindName);
 
-            // Initialize local array with the same capacity defined on the server
             localArray = new String[array.getArrayCapacity()];
 
-            // Command line interface for user to perform task
+            String userAndId = array.registerUser();
+            System.out.println("You are registered with: " + userAndId);
+            clientId = Integer.parseInt(userAndId.split("_")[1]);  // Extracting client ID from the returned string
+
+
             Scanner scanner = new Scanner(System.in);
             while (true) {
                 displayMenu();
@@ -61,7 +64,7 @@ public class RemoteStringArrayClient {
 
         switch (choice) {
             case "1":
-                // Handle Get Array Capacity
+                //  Array Capacity
                 try {
                     System.out.println("Array Capacity: " + array.getArrayCapacity());
                 } catch (Exception e) {
@@ -70,35 +73,59 @@ public class RemoteStringArrayClient {
                 break;
 
             case "2":
-                // Handle Fetch Element (Read)
+                //  Fetch Element (Read)
                 System.out.print("Enter index to fetch (read): ");
                 index = Integer.parseInt(scanner.nextLine());
                 try {
-                    result = array.fetchElementRead(index, 1);
-                    localArray[index] = result;  // Store it in local array
-                    System.out.println(result != null ? "Success: " + result : "Failure");
+                    boolean lockGranted = array.requestReadLock(index, clientId);
+                    if (!lockGranted) {
+                        System.out.println("Failed to acquire read lock for index " + index);
+                        break;
+                    }
+                    result = array.fetchElementRead(index, clientId);
+                    if (result != null) {
+                        System.out.println("Success: " + result);
+                    } else {
+                        System.out.println("Element at index " + index + " is blank (null).");
+                    }
+                    localArray[index] = result;  // local array
                 } catch (Exception e) {
                     e.printStackTrace();
                 }
                 break;
 
             case "3":
-                // Handle Fetch Element (Write)
+                // Fetch Element (Write)
                 System.out.print("Enter index to fetch (write): ");
                 index = Integer.parseInt(scanner.nextLine());
                 try {
-                    result = array.fetchElementWrite(index, 1);
-                    localArray[index] = result;  // Store it in local array
-                    System.out.println(result != null ? "Success: " + result : "Failure");
+                    boolean lockGranted = array.requestWriteLock(index, clientId);
+                    if (!lockGranted) {
+                        System.out.println("Failed to acquire write lock for index " + index);
+                        break;
+                    }
+                    result = array.fetchElementWrite(index, clientId);
+                    if (result != null) {
+                        localArray[index] = result;  // Update the local array with the fetched element
+                        System.out.println("Success: " + result);
+                    } else {
+                        System.out.println("Failure");
+                    }
+
                 } catch (Exception e) {
                     e.printStackTrace();
                 }
                 break;
 
             case "4":
-                // Handle Insert Element
+                //  Insert Element
                 System.out.print("Enter index to insert: ");
-                index = Integer.parseInt(scanner.nextLine());
+                try {
+                    index = Integer.parseInt(scanner.nextLine());
+                } catch (NumberFormatException e) {
+                    System.out.println("Error: Please enter a valid integer for the index.");
+                    break; // Exit the case
+                }
                 System.out.print("Enter string to insert: ");
                 input = scanner.nextLine();
                 localArray[index] = input;  // Store it in local array
@@ -106,25 +133,30 @@ public class RemoteStringArrayClient {
                 break;
 
             case "5":
-                // Handle Release Lock at Specific Index
+                //  Release Lock at Specific Index
                 System.out.print("Enter index to release lock: ");
                 index = Integer.parseInt(scanner.nextLine());
                 try {
-                    array.releaseLock(index, 1); // Assuming client_id = 1
+                    array.releaseLock(index, clientId);
                     System.out.println("Lock released successfully.");
                 } catch (IllegalMonitorStateException e) {
                     System.out.println("Error: You either didn't have the lock or the resource was already unlocked.");
                 } catch (Exception e) {
                     e.printStackTrace();
                 }
+                try {
+                    Thread.sleep(500);
+                } catch (InterruptedException e) {
+                    throw new RuntimeException(e);
+                }
                 break;
 
             case "6":
-                // Handle Write Back Element to the server
+                //  Write Back Element to the server
                 System.out.print("Enter index to write back: ");
                 index = Integer.parseInt(scanner.nextLine());
                 try {
-                    boolean success = array.writeBackElement(localArray[index], index, 1);
+                    boolean success = array.writeBackElement(localArray[index], index, clientId);
                     System.out.println(success ? "Success" : "Failure");
                 } catch (Exception e) {
                     e.printStackTrace();
@@ -132,7 +164,7 @@ public class RemoteStringArrayClient {
                 break;
 
             case "7":
-                // Handle Concatenate to Element
+                //  Concatenate to Element
                 System.out.print("Enter index to concatenate: ");
                 index = Integer.parseInt(scanner.nextLine());
                 System.out.print("Enter string to concatenate: ");
@@ -151,15 +183,14 @@ public class RemoteStringArrayClient {
                 break;
 
             case "8":
-                // Handle Print Element
+                //  Print Element
                 System.out.print("Enter index to print: ");
                 index = Integer.parseInt(scanner.nextLine());
                 try {
                     // Attempt to fetch a read lock
-                    String fetchedElement = array.fetchElementRead(index, 1); // Assuming client_id = 1
+                    String fetchedElement = array.fetchElementRead(index, clientId);
                     if (fetchedElement != null) {
                         System.out.println(fetchedElement);
-                        array.releaseLock(index, 1); // Release the read lock after printing
                     } else {
                         System.out.println("Failed to acquire read lock for index " + index);
                     }
