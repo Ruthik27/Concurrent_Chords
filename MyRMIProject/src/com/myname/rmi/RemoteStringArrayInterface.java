@@ -19,7 +19,8 @@ public interface RemoteStringArrayInterface extends Remote {
     boolean requestWriteLock(int l, int client_id) throws RemoteException;
 
     // Used for releasing any lock on the specified element for a client
-    void releaseLock(int l, int client_id) throws RemoteException;
+    boolean releaseLock(int index, int clientId) throws RemoteException;
+
     boolean isLockAvailable(int index, int clientId) throws RemoteException;
 
 

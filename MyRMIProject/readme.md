@@ -2,11 +2,15 @@ lsof -i:1099
 
 kill 12345
 
+ssh rk42218@odin.cs.uga.edu
+
 doesn't require to have a rmi hosted manually
 
 javac -d bin src/com/myname/rmi/*.java    
 
-java -cp bin com.myname.rmi.RemoteStringArrayClient resources/client_config.properties
+java -cp bin com.myname.rmi.RemoteStringArrayClient resources/client_config1.properties
+java -cp bin com.myname.rmi.RemoteStringArrayClient resources/client_config2.properties
+
 
 java -cp bin com.myname.rmi.RemoteStringArrayServer resources/server_config.properties
 
@@ -50,3 +54,19 @@ Use rmic Tool (for older Java versions):
 
 If you're using a Java version prior to Java 5, you'll need to use the rmic tool to generate stubs and skeletons. For Java 5 and newer, this step is not required as it uses dynamic proxies.
 Remember, Java RMI's primary use case is for communication within a controlled network (like between servers in a data center). If you're thinking of using it over the internet, be very cautious and aware of the security implications."
+
+client 1 : Read lock index 2
+client 2 : Read lock index 2
+cleint 1 : read lock index 3
+cleint 2 : write lock index 3
+cleint 1 : release lock index 1
+cleint 1 : release lock index 2
+client 1 : release lock  index 3
+client 2 : read lock index 2
+client 2 : write lock index 3
+cleint 2 : release lock index 1
+cleint 2 : release lock index 2
+client 2 : release lock  index 3
+
+sftp://vcf1.cs.uga.edu
+rk42218

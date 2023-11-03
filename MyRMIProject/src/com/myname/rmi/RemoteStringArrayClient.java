@@ -15,12 +15,21 @@ public class RemoteStringArrayClient {
     public static void main(String[] args) {
         try {
 
+            if(args.length != 1) {
+                System.err.println("Usage: java RemoteStringArrayClient <path_to_client_config_file>");
+                System.exit(1);
+            }
+
+            // Load configuration from client side file
             Properties config = new Properties();
-            config.load(new FileInputStream("resources/client_config.properties"));
+            config.load(new FileInputStream(args[0]));
 
             String bindName = config.getProperty("bindName");
+            String serverName = config.getProperty("serverName");
+            int serverPort = Integer.parseInt(config.getProperty("serverPort", "1099"));  // default to 1099
 
-            Registry registry = LocateRegistry.getRegistry("localhost");
+            // Connect to the RMI registry on the specified server and port
+            Registry registry = LocateRegistry.getRegistry(serverName, serverPort);
 
             array = (RemoteStringArrayInterface) registry.lookup(bindName);
 
@@ -142,7 +151,8 @@ public class RemoteStringArrayClient {
                 } catch (IllegalMonitorStateException e) {
                     System.out.println("Error: You either didn't have the lock or the resource was already unlocked.");
                 } catch (Exception e) {
-                    e.printStackTrace();
+                    System.out.println("Failure");
+                    //e.printStackTrace();
                 }
                 try {
                     Thread.sleep(500);
@@ -159,7 +169,8 @@ public class RemoteStringArrayClient {
                     boolean success = array.writeBackElement(localArray[index], index, clientId);
                     System.out.println(success ? "Success" : "Failure");
                 } catch (Exception e) {
-                    e.printStackTrace();
+                    System.out.println("Failure");
+                    //e.printStackTrace();
                 }
                 break;
 
