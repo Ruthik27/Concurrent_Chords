@@ -2,7 +2,7 @@ lsof -i:1099
 
 kill 12345
 
-ssh rk42218@odin.cs.uga.edu
+ssh 
 
 doesn't require to have a rmi hosted manually
 
